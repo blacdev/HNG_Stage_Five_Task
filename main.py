@@ -1,10 +1,8 @@
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile,File, Request
+from fastapi import FastAPI, Depends, HTTPException, UploadFile,File, Request
 import uvicorn
 import os
-import shutil
 from uuid import uuid4
 from datetime import datetime
-from typing import List
 from fastapi.responses import FileResponse
 from models import Files, find_file
 from db import get_db, create_database
@@ -12,7 +10,7 @@ from sqlalchemy import and_
 from sqlalchemy.orm import Session
 from settings import settings
 from schemas import FileSchema
-
+from fastapi.middleware.cors import CORSMiddleware
 
 def getUrlFullPath(request: Request, filename: str, bucket_name: str = None):
     hostname = request.headers.get("host")
@@ -28,6 +26,15 @@ def getUrlFullPath(request: Request, filename: str, bucket_name: str = None):
 
 
 app = FastAPI()
+
+origins = ["*"]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 create_database()
 
