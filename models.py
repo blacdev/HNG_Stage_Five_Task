@@ -12,7 +12,6 @@ class Files(Base):
     id = Column(String(255), primary_key=True, index=True, default=uuid4().hex)
     filename = Column(String(255), index=True)
     bucketname = Column(String(255), index=True)
-    filesize = Column(Integer, index=True)
     url = Column(String(255))
     date_created = Column(DateTime, default=datetime.datetime.utcnow)
     last_updated = Column(DateTime, default=datetime.datetime.utcnow)
