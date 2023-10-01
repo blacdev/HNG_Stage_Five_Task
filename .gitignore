@@ -96,6 +96,7 @@ Pipfile.lock
 Pipfile
 files/*
 *.db
+chunks/*
 
 # poetry
 #   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.

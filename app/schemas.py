@@ -34,7 +34,7 @@ class FileSchema(BaseModel):
         from_attributes = True
 
 
-class FileResponse(BaseModel):
+class FileResponseSchema(BaseModel):
     message: str
     data: FileSchema
 
@@ -57,23 +57,5 @@ class FileResponse(BaseModel):
 
 class AllFileResponse(BaseModel):
     message: str
-    data: [FileSchema]
+    data: list[FileSchema]
 
-    class Config:
-        json_schema_extra= {
-            "example": {
-                "message": "<message>",
-                "data": [
-                    {
-                        "id": "<id>",
-                        "filename": "<filename>",
-                        "bucketname": "<bucketname>",
-                        "date_created": "<date_created>",
-                        "last_updated": "<last_updated>",
-                        "url": "<url>",
-                        "play_back_url": "<play_back_url>"
-                    }
-                ]
-            }
-        }
-        from_attributes = True
