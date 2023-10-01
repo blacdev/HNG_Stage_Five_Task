@@ -18,8 +18,6 @@ imageio==2.31.4
 imageio-ffmpeg==0.4.9
 lockfile==0.12.2
 moviepy==1.0.3
-mysql-connector-python==8.1.0
-mysqlclient==2.2.0
 numpy==1.26.0
 pbr==5.9.0
 Pillow==10.0.1
