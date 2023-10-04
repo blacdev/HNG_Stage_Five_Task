@@ -17,15 +17,15 @@ class Files(Base):
     date_created = Column(DateTime, default=datetime.datetime.utcnow)
     last_updated = Column(DateTime, default=datetime.datetime.utcnow)
 
-class Chunk_tracker(Base):
-    __tablename__ = "chunk_tracker"
+class Blob_tracker(Base):
+    __tablename__ = "blob_tracker"
     id = Column(String(255), primary_key=True, index=True, default=uuid4().hex)
     file_id = Column(String(255), index=True)   
-    chunk_number = Column(Integer) # chunk number
-    chunk_size = Column(Integer) # chunk size
-    chunk_name = Column(String(255)) # chunk name
+    blob_sequnce = Column(Integer) # blob sequence that tells us the order the blob is to be put together
+    blob_size = Column(Integer) # chunk size
+    blob_name = Column(String(255)) # chunk name
     is_completed = Column(Boolean, default=False)
-    is_last_chunk = Column(Boolean, default=False)
+    is_last_blob = Column(Boolean, default=False)
 
 class Transcribe(Base):
     __tablename__ = "transcribe"
@@ -41,7 +41,8 @@ class Progress(Base):
     __tablename__ = "progress"
     id = Column(String(255), primary_key=True, index=True, default=uuid4().hex)
     file_id = Column(String(255), index=True)
-    progress = Column(Integer, default=0) # for each chunk that has been added to the file, the progress is incremented by 1
+    progress_position = Column(Integer, default=0) # progress position
+    expected_progress_count = Column(Integer, default=0) # expected progress count
     is_completed = Column(Boolean, default=False)
 
 

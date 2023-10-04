@@ -1,18 +1,17 @@
 from decouple import config
-import python3_gearman as gearman
+import os
 
 
 class Settings:
   FILES_BASE_FOLDER = config("FILES_BASE_FOLDER" , default="files")
-  # FILES_BASE_URL = config("FILES_BASE_URL")
-  GEARMAN_HOST = config("GEARMAN_HOST")
-  GEARMAN_PORT = config("GEARMAN_PORT")
-  CHUNK_BASE_FOLDER = config("CHUNK_BASE_FOLDER", default="chunks")
+  BLOB_BASE_FOLDER = config("BLOB_BASE_FOLDER", default="blob")
  
-  
+  def create_base_folders(self):
+    if not os.path.exists(self.FILES_BASE_FOLDER):
+      os.mkdir(self.FILES_BASE_FOLDER)
 
-
-
+    if not os.path.exists(self.BLOB_BASE_FOLDER):
+      os.mkdir(self.BLOB_BASE_FOLDER)
 
 
 settings = Settings()

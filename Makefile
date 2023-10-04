@@ -2,4 +2,4 @@
 
 # gearman
 
-sudo apat install gearman-tools
+sudo apt install gearman-tools

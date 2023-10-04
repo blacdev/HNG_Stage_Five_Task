@@ -1,89 +1,39 @@
 from fastapi import APIRouter, Depends, HTTPException,File, Request, BackgroundTasks
 import os
-
 from uuid import uuid4
-from datetime import datetime
-from fastapi.responses import FileResponse
-from app.models import Files, find_file, Chunk_tracker, Progress
+from fastapi.responses import StreamingResponse
+from app.models import Files, find_file, Blob_tracker, Progress
 from db import get_db
 from sqlalchemy.orm import Session
 from app.settings import settings
-from app.schemas import FileSchema, FileResponseSchema
-import python3_gearman as gearman
- 
-
-
-def getUrlFullPath(request: Request, filename: str, bucket_name: str = None):
-    hostname = request.headers.get("host")
-    request = f"{request.url.scheme}://"
-    if hostname == "127.0.0.1:8000":
-        hostname = request + hostname
-    else:
-        hostname = f"https://{hostname}"  
-
-    return f"{hostname}/files/{bucket_name}/{filename}"
-
-
+from app.schemas import FileResponseSchema
+from app.services import getUrlFullPath, create_empty_file, video_streamer
+from app.blob_processor import video_processing_start
 
 
 
 app = APIRouter() 
 
-gm_client = gearman.GearmanClient([settings.GEARMAN_HOST + settings.GEARMAN_PORT])
-
-
-
-
-#  check if Base folder exists
-if not os.path.exists(settings.FILES_BASE_FOLDER):
-    os.mkdir(settings.FILES_BASE_FOLDER)
-
-#  check if chunks folder exists
-if not os.path.exists(settings.CHUNK_BASE_FOLDER):
-    os.mkdir(settings.CHUNK_BASE_FOLDER)
-
-# function to create an empty video file
-def create_empty_file(file_name: str, bucket_name: str):
-    # create folder with bucket name
-    if not os.path.exists(os.path.join(settings.FILES_BASE_FOLDER, bucket_name)):
-        os.mkdir(os.path.join(settings.FILES_BASE_FOLDER, bucket_name))
-    try:
-
-        # create empty file
-        with open(file_name, "wb") as f:
-            f.write(b"")
-        return True
-    except Exception as e:
-        print(e)
-        return False
-        
-    
-
-    
-
-# function to append bytes to a video file
-def append_to_file(file_path: str, file_name: str, bytes: bytes):
-    with open(os.path.join(file_path, file_name), "ab") as f:
-        f.write(bytes)
-
 
 # endpoint to create a new file
 @app.post(
-    "/files/{bucket_name}",
+    "/files",
     status_code=201,
     response_model=FileResponseSchema,
 )
 def create_file(
     request: Request,
-    bucket_name: str,
     file_name: str,
     file_type: str,
     db: Session = Depends(get_db),
 ):
+    
+    bucket_name = uuid4().hex
+
     # check if file name already exists
     existing_file = find_file(bucket_name, file_name, db)
     if existing_file:
-        raise HTTPException(status_code=409, detail="File already exists")
+        raise HTTPException(status_code=409, detail=f"File with this name({file_name+ '.' + file_type}) already exists")
     
     # create file
     local_file_path = os.path.join(
@@ -92,13 +42,14 @@ def create_file(
         file_name+"."+file_type,
     )
 
-    # create chunk bucket in chunks folder
-    if not os.path.exists(os.path.join(settings.CHUNK_BASE_FOLDER, bucket_name)):
-        os.mkdir(os.path.join(settings.CHUNK_BASE_FOLDER, bucket_name))
+    # create blob bucket in blob folder
+    if not os.path.exists(os.path.join(settings.BLOB_BASE_FOLDER, bucket_name)):
+        os.mkdir(os.path.join(settings.BLOB_BASE_FOLDER, bucket_name))
 
     common_path = os.path.commonpath(
         (os.path.realpath(settings.FILES_BASE_FOLDER), local_file_path)
     )
+
     if os.path.realpath(settings.FILES_BASE_FOLDER) != common_path:
         raise HTTPException(
             status_code=403, detail="File reading from unallowed path"
@@ -110,23 +61,30 @@ def create_file(
     
 
     filesize = os.path.getsize(local_file_path)
-    url = getUrlFullPath(request, file_name + "." + file_type, bucket_name)
+    
+    id=uuid4().hex
+    print(id)
     file = Files(
-        id=uuid4().hex,
+        id = id,
         filename=file_name + "." + file_type,
         bucketname=bucket_name,
         filesize=filesize,
-        url=url,
+        url=getUrlFullPath(request, file_id=id),
     )
+
     db.add(file)
     db.commit()
     db.refresh(file)
+
     # create progress tracker
     progress_tracker = Progress(
         id=uuid4().hex,
         file_id=file.id,
-        progress=0,
+        progress_position=0,
+        expected_progress_count=0,
+        is_completed=False
     )
+
     db.add(progress_tracker)
     db.commit()
     db.refresh(progress_tracker)
@@ -135,69 +93,61 @@ def create_file(
         "data": file
     }
 
-# an endpoint that recieves chunks of a file, write them into the folder with the bucket name and and a uuid4. Then it creates a progress tracker for the file
+
 @app.post(
-    "/files/{bucket_name}/{file_name}",
+    "/files/{file_id}",
     status_code=201,
 )
-def store_chunk(
-    request: Request,
-    bucket_name: str,
-    file_name: str,
-    chunk_number: int,
+def store_blob(
+    file_id: str,
+    blob_sequnece: int,
     background: BackgroundTasks,
-    is_last_chunk: bool=False,
-    chunk: bytes = File(...),
+    is_last_blob: bool=False,
+    blob: bytes = File(...),
     db: Session = Depends(get_db),
 ):
-    # check for chunk bucket
-    if not os.path.exists(os.path.join(settings.CHUNK_BASE_FOLDER, bucket_name)):
-        os.mkdir(os.path.join(settings.CHUNK_BASE_FOLDER, bucket_name))
-    
-    chunk_name = f"{file_name}_{chunk_number}.webm"
-    chunk_path = os.path.join(settings.CHUNK_BASE_FOLDER, bucket_name, chunk_name)
-    
-    # check if chunk file already exists
-    if os.path.exists(chunk_path):
-        raise HTTPException(status_code=409, detail="Chunk already exists")
-    # create chunk file with chunk name and chunk number as the name of the file
-    
-    # find file
-    existing_file = find_file(bucket_name, file_name, db)
-
-    if not existing_file:
+    file = db.query(Files).filter(Files.id == file_id).first()
+    if not file:
         raise HTTPException(status_code=404, detail="File not found")
-    # write chunk to chunk file
-    with open(chunk_path, "wb") as f:
-        f.write(chunk)
+
+    # check for blob bucket
+    if not os.path.exists(os.path.join(settings.BLOB_BASE_FOLDER, file.bucketname)):
+        os.mkdir(os.path.join(settings.BLOB_BASE_FOLDER, file.bucketname))
+    
+    blob_name =  f"{file.filename.split('.')[0]}_{blob_sequnece}.{file.filename.split('.')[1]}"
+    blob_path = os.path.join(settings.BLOB_BASE_FOLDER, file.bucketname, blob_name)
+    
+
+    # write blob to blob file
+    try:
+        with open(blob_path, "wb") as f:
+            f.write(blob)
+
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail="failed to save blob to bucket")
     
     # create progress tracker
-    progress_tracker = Chunk_tracker(
+    progress_tracker = Blob_tracker(
         id=uuid4().hex,
-        file_id=existing_file.id,
-        chunk_number=chunk_number,
-        chunk_size=len(chunk),
-        chunk_name=chunk_name,
-        is_last_chunk=is_last_chunk if is_last_chunk else False
+        file_id=file.id,
+        blob_sequnce=blob_sequnece,
+        blob_size=len(blob),
+        blob_name=blob_name,
+        is_last_blob=is_last_blob if is_last_blob else False
     )
     db.add(progress_tracker)
     db.commit()
     db.refresh(progress_tracker)
-
-    data = existing_file.id + " " + bucket_name + " " + file_name
-
-
-    background.add_task(
-        lambda:gm_client.submit_job("process_video", data, background=True), 
-        
-        )
     
-    if is_last_chunk:
-        background.add_task(
-            lambda: gm_client.submit_job("transcribe", existing_file.id, background=True)
-        )
+    #TODO: create a background task to process the blobs when the last blob is recieved
+    background.add_task(
+        video_processing_start,
+        file_id=file.id
+    )
+
     return {
-        "message": "Chunk created successfully",
+        "message": "blob created successfully",
         "data": progress_tracker
     }
 
@@ -257,18 +207,29 @@ def get_all_files(request:Request, bucket_name: str, db: Session = Depends(get_d
                 }
     """
     files = db.query(Files).filter(Files.bucketname == bucket_name).all()
-    if not files:
-        raise HTTPException(status_code=404, detail="Bucket not found")
     return {
         "message": "files retrieved successfully",
-        "data": files
+        "data": files if len(files) > 0 else []
     }
 
 
-
-@app.get("/files/{bucket_name}/{file_name}", status_code=200)
+@app.get("/files/{file_id}", status_code=200)   
 def get_file(
-    bucket_name: str, file_name: str, db: Session = Depends(get_db)
+    file_id: str, db: Session = Depends(get_db)
+):
+    file = db.query(Files).filter(Files.id == file_id).first()
+    if not file:
+        raise HTTPException(status_code=404, detail="File not found")
+        
+    return {
+            "message": "file info retrieved successfully",
+            "data": file
+        }
+    
+
+@app.get("/files/stream/{file_id}", status_code=200)
+def stream_file(
+    file_id: str, db: Session = Depends(get_db)
 ):
 
     """
@@ -316,7 +277,7 @@ def get_file(
 
 
     """
-    existing_file = find_file(bucket_name, file_name, db)
+    existing_file = db.query(Files).filter(Files.id == file_id).first()
     if existing_file:
         local_file_path = os.path.join(
             os.path.realpath(settings.FILES_BASE_FOLDER),
@@ -332,7 +293,8 @@ def get_file(
                 status_code=403, detail="File reading from unallowed path"
             )
 
-        return FileResponse(local_file_path)
+        
+        StreamingResponse(video_streamer(local_file_path), status_code=200, media_type="video/webm")
     else:
         raise HTTPException(status_code=404, detail="File not found")
 
@@ -404,9 +366,9 @@ def delete_file(
 
 
 #  track progress of file
-@app.get("/files/{bucket_name}/{file_name}/progress")
+@app.get("/files/progress/{file_id}")
 def track_progress(
-    bucket_name: str, file_name: str, db: Session = Depends(get_db)
+    file_id: str, db: Session = Depends(get_db)
 ):
     """
     intro-->
@@ -448,33 +410,13 @@ def track_progress(
                     "detail": "File not found"
                 }
     """
-    existing_file = find_file(bucket_name, file_name, db)
-    if existing_file:
-        progress = db.query(Progress).filter(Progress.file_id == existing_file.id).first()
-        if progress:
-            if progress.is_completed:
-                return {
-                    "message": "progress retrieved successfully",
-                    "data": progress
-                }
-            else:
-                return {
-                    "message": "progress retrieved successfully",
-                    "data": {
-                        "id": None,
-                        "file_id": file_name,
-                        "progress": 0
-                    }
-                }
+    
 
-        else:
-            return {
-                "message": "progress retrieved successfully",
-                "data": {
-                    "id": None,
-                    "file_id": file_name,
-                    "progress": 0
-                }
-            }
-    else:
+    progress = db.query(Progress).filter(Progress.file_id == file_id).first()
+    if not progress:
         raise HTTPException(status_code=404, detail="File not found")
+    
+    return {
+        "message": "progress retrieved successfully",
+        "data": progress if progress else {}
+    }

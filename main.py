@@ -1,16 +1,12 @@
-from fastapi import FastAPI, Depends, HTTPException, UploadFile,File, Request
-from sqlalchemy.orm import Session
-from typing import List
-from uuid import uuid4
-from datetime import datetime
-from fastapi.responses import FileResponse
-from db import create_database
-from sqlalchemy import and_
-
-from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+from fastapi import FastAPI
+from db import create_database
+from app.settings import settings
+from fastapi.middleware.cors import CORSMiddleware
 from app.Flle_app import app as file_app
 
+# create base folders
+settings.create_base_folders()
 
 app = FastAPI(
     title="File Storage API",
@@ -20,8 +16,10 @@ app = FastAPI(
     redoc_url=None,
     openapi_url="/openapi.json",)
 
+# create database
 create_database()
 
+# include app routers here
 app.include_router(file_app, prefix="/api/v1")
 
 origins = ["*"]
