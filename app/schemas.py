@@ -6,10 +6,11 @@ from pydantic import BaseModel
 class FileSchema(BaseModel):
     id: str
     filename: str
-    bucketname: str
+    bucket_name: str
     date_created: Optional[datetime.datetime]
     last_updated: Optional[datetime.datetime]
-    url: Optional[str]
+    download_url: Optional[str]
+    thumbnail_url: Optional[str]
     play_back_url: Optional[str] = None
 
     class Config:

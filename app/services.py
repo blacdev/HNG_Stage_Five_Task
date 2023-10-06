@@ -1,17 +1,34 @@
 from fastapi import Request
 import os
 from pprint import pprint
+from typing import Union
 from app.settings import settings
 
-def getUrlFullPath(request: Request, file_id: str):
+def getUrlFullPath(request: Request, file_id: str, type:Union[str, None] = None):
     hostname = request.headers.get("host")
+    path = request.url.path
+    
     request = f"{request.url.scheme}://"
-    if hostname == "127.0.0.1:8000":
-        hostname = request + hostname
-    else:
-        hostname = f"https://{hostname}"  
+    if request == "http://":
+        if type == "video":
+            return f"{hostname}{path}/{file_id}/download"
 
-    return f"{hostname}/files/{file_id}"
+
+        elif type == "thumbnail":
+           return f"{hostname}{path}/{file_id}/thumbnail"
+
+        elif type == "playback":
+            return f"{hostname}{path}/{file_id}/playback"
+
+    elif request == "https://":
+        if type == "video":
+            return f"{hostname}{path}/{file_id}/download"
+
+        elif type == "thumbnail":
+            return f"{hostname}{path}/{file_id}/thumbnail"
+
+        elif type == "playback":
+            return f"{hostname}{path}/{file_id}/playback"
 
 
 
