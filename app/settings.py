@@ -14,29 +14,14 @@ class Settings:
       os.mkdir(self.MEDIA_DIR)
 
     abs_path = os.path.abspath(self.MEDIA_DIR)
-    if not os.path.exists(os.path.join(abs_path, self.FILES_BASE_FOLDER)):
-      FILES_BASE_FOLDER =  os.mkdir(os.path.join(abs_path, self.FILES_BASE_FOLDER))
+    FILES_BASE_FOLDER = os.path.join(abs_path, self.FILES_BASE_FOLDER)
+    BLOB_BASE_FOLDER = os.path.join(abs_path, self.BLOB_BASE_FOLDER)
+    THUMBNAIL_BASE_FOLDER = os.path.join(abs_path, self.THUMBNAIL_BASE_FOLDER)
+    COMPRESSION_BASE_FOLDER = os.path.join(abs_path, self.COMPRESSION_BASE_FOLDER)
 
-    else:
-      FILES_BASE_FOLDER = os.path.join(abs_path, self.FILES_BASE_FOLDER)
-
-    if not os.path.exists(os.path.join(abs_path, self.BLOB_BASE_FOLDER)):
-      BLOB_BASE_FOLDER =  os.mkdir(os.path.join(abs_path, self.BLOB_BASE_FOLDER))
-    
-    else:
-      BLOB_BASE_FOLDER = os.path.join(abs_path, self.BLOB_BASE_FOLDER)
-
-    if not os.path.exists(os.path.join(abs_path, self.THUMBNAIL_BASE_FOLDER)):
-      THUMBNAIL_BASE_FOLDER =  os.mkdir(os.path.join(abs_path, self.THUMBNAIL_BASE_FOLDER))
-    
-    else:
-      THUMBNAIL_BASE_FOLDER = os.path.join(abs_path, self.THUMBNAIL_BASE_FOLDER)
-
-    if not os.path.exists(os.path.join(abs_path, self.COMPRESSION_BASE_FOLDER)):
-      COMPRESSION_BASE_FOLDER =  os.mkdir(os.path.join(abs_path, self.COMPRESSION_BASE_FOLDER))
-    
-    else:
-      COMPRESSION_BASE_FOLDER = os.path.join(abs_path, self.COMPRESSION_BASE_FOLDER)
+    for folder in [FILES_BASE_FOLDER, BLOB_BASE_FOLDER, THUMBNAIL_BASE_FOLDER, COMPRESSION_BASE_FOLDER]:
+      if not os.path.exists(folder):
+        os.mkdir(folder)
 
     return FILES_BASE_FOLDER, BLOB_BASE_FOLDER, THUMBNAIL_BASE_FOLDER, COMPRESSION_BASE_FOLDER
 

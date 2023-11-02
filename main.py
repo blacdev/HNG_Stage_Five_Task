@@ -12,7 +12,7 @@ app = FastAPI(
     title="File Storage API",
     description="This is a simple API that allows you to upload files to a storage",
     version="1.0.0",
-    docs_url="/api/v1",
+    docs_url="/",
     redoc_url=None,
     openapi_url="/openapi.json",)
 

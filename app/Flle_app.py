@@ -7,7 +7,7 @@ from db import get_db
 from sqlalchemy.orm import Session
 from app.settings import settings
 from app.schemas import FileResponseSchema
-from app.services import getUrlFullPath, video_streamer
+from app.services import get_url_full_path, video_streamer
 from app.blob_processor import video_processing_start
 
 FILE_FOLDER, BLOB_FOLDER, THUMBNAIL_FOLDER, COMPRESSION_FOLDER = settings.create_base_folders()
@@ -27,6 +27,15 @@ def create_file(
 ):
     
     # TODO: Fix issue with creating multple buckets for the same user 
+    if file_type not in ["mp4", "webm"]:
+        raise HTTPException(status_code=400, detail="Invalid file type")
+    
+    if len(file_name) < 1:
+        raise HTTPException(status_code=400, detail="Invalid file name")
+        
+    if "_" in file_name:
+        raise HTTPException(status_code=400, detail="File name cannot contain underscore '_'")
+    
     bucket_name = uuid4().hex
 
     # check if file name already exists
@@ -38,14 +47,15 @@ def create_file(
 
     file = Files(
         id = id,
-        filename=file_name + "." + file_type,
+        filename=file_name,
         bucket_name=bucket_name,
+        file_format=file_type,
         filesize=0,
         compressed_filesize=0,
         thumbnail_name = file_name + ".jpg",
-        play_back_url=getUrlFullPath(request, file_id=id, type="playback"),
-        thumbnail_url=getUrlFullPath(request, file_id=id, type="thumbnail"),
-        download_url=getUrlFullPath(request, file_id=id, type="video"),
+        play_back_url=get_url_full_path(request, file_id=id, file_type="playback"),
+        thumbnail_url=get_url_full_path(request, file_id=id, file_type="thumbnail"),
+        download_url=get_url_full_path(request, file_id=id, file_type="video"),
     )
 
     db.add(file)
@@ -71,6 +81,7 @@ def create_file(
 def store_blob(
     file_id: str,
     blob_sequnece: int,
+    request: Request,
     background: BackgroundTasks,
     is_last_blob: bool=False,
     blob: bytes = File(...),
@@ -84,12 +95,12 @@ def store_blob(
     if not os.path.exists(os.path.join(BLOB_FOLDER, file.bucket_name)):
         os.mkdir(os.path.join(BLOB_FOLDER, file.bucket_name))
     
-    blob_name =  f"{file.filename.split('.')[0]}_{blob_sequnece}.{file.filename.split('.')[1]}"
+    blob_name =  f"{file.filename}_{blob_sequnece}.{file.file_format }"
     blob_path = os.path.join(BLOB_FOLDER, file.bucket_name, blob_name)
 
     # check if blob with same name already exists
     if os.path.exists(blob_path):
-        raise HTTPException(status_code=409, detail=f"Blob with this name({blob_name}) already exists")
+        raise HTTPException(status_code=409, detail=f"Blob with sequnece number({blob_sequnece}) already exists")
     
 
     # write blob to blob file
@@ -105,7 +116,8 @@ def store_blob(
     if is_last_blob:
         background.add_task(
             video_processing_start,
-            file_id=file.id
+            file_id=file.id,
+            request=request,
         )
 
     return {

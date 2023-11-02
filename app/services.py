@@ -4,33 +4,24 @@ from pprint import pprint
 from typing import Union
 from app.settings import settings
 
-def getUrlFullPath(request: Request, file_id: str, type:Union[str, None] = None):
+def get_url_full_path(request: Request, file_type: Union[str, None] = None) -> str:
     hostname = request.headers.get("host")
+    print("hostname", hostname)
+
     path = request.url.path
-    
+    print("path", path)
     request = f"{request.url.scheme}://"
-    if request == "http://":
-        if type == "video":
-            return f"{hostname}{path}/{file_id}/download"
+    print("request", request)
+
+    if file_type == "video":
+        return f"{request}{hostname}{path}/download"
 
 
-        elif type == "thumbnail":
-           return f"{hostname}{path}/{file_id}/thumbnail"
+    elif file_type == "thumbnail":
+        return f"{request}{hostname}{path}/thumbnail"
 
-        elif type == "playback":
-            return f"{hostname}{path}/{file_id}/playback"
-
-    elif request == "https://":
-        if type == "video":
-            return f"{hostname}{path}/{file_id}/download"
-
-        elif type == "thumbnail":
-            return f"{hostname}{path}/{file_id}/thumbnail"
-
-        elif type == "playback":
-            return f"{hostname}{path}/{file_id}/playback"
-
-
+    elif file_type == "playback":
+        return f"{request}{hostname}{path}/playback"
 
 
 def append_to_file(file_path: str, file_name: str, bytes: bytes):
