@@ -1,3 +1,8 @@
+"""
+This module contains all the models used in the application
+
+TODO: Add more model to handle image and other models as needed
+"""
 import datetime
 from uuid import uuid4
 from sqlalchemy.schema import Column
@@ -5,40 +10,6 @@ from sqlalchemy.types import String, DateTime, Integer, Boolean, TEXT, Enum
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship, Session
 from db import Base
-
-
-class Users(Base):
-    __tablename__ = "users"
-    id = Column(String(255), primary_key=True, index=True, default=uuid4().hex)
-    first_name = Column(String(255))
-    last_name = Column(String(255))
-    phone_number = Column(String(255))
-    address = Column(String(255))
-    username = Column(String(255), unique=True)
-    email = Column(String(255), index=True, unique=True)
-    password_hash = Column(String(255))
-    date_created = Column(DateTime, default=datetime.datetime.utcnow)
-    last_updated = Column(DateTime, default=datetime.datetime.utcnow)
-
-    auth = relationship("Auth", backref="users", lazy="joined")
-
-
-class Auth(Base):
-    __tablename__ = "auth"
-    id = Column(String(255), primary_key=True, index=True, default=uuid4().hex)
-    user_id = Column(String(255), ForeignKey("users.id"), index=True, )
-    type = Column(Enum("email", "google", name="type"), default="email")
-    date_created = Column(DateTime, default=datetime.datetime.utcnow)
-
-class Sessions(Base):
-    __tablename__ = "sessions"
-    id = Column(String(255), primary_key=True, index=True, default=uuid4().hex)
-    user_id = Column(String(255), ForeignKey("users.id"), index=True, )
-    token = Column(String(255), index=True)
-    date_created = Column(DateTime, default=datetime.datetime.utcnow)
-    last_updated = Column(DateTime, default=datetime.datetime.utcnow)
-
-###################################################################################################################
 
 
 ############################ File and Bucket Models ###############################################################
@@ -72,7 +43,8 @@ class Files(Base):
 
     bucket = relationship("Bucket", back_populates="files", lazy="joined")
     blob = relationship("Blob", back_populates="file", lazy="joined")
-    transcription = relationship("Transcribe", back_populates="file", lazy="joined") 
+    transcribe = relationship("Transcribe", back_populates="file", lazy="joined") 
+    merge_tracking = relationship("merge_tracking", back_populates="file",)
 
 
 class Blob(Base):
@@ -87,7 +59,8 @@ class Blob(Base):
     date_created = Column(DateTime, default=datetime.datetime.utcnow)
     last_updated = Column(DateTime, default=datetime.datetime.utcnow)
 
-    file = relationship("Files", back_populates="blobs", lazy="joined")
+    file = relationship("Files", back_populates="blob",)
+    merge_tracking = relationship("merge_tracking", back_populates="blob", lazy="joined")
 #############################################################################################################
 
 ############################################# Transcribe Models #############################################
@@ -117,7 +90,11 @@ class merge_tracking(Base):
     date_created = Column(DateTime, default=datetime.datetime.utcnow)
     last_updated = Column(DateTime, default=datetime.datetime.utcnow)
 
-    file = relationship("Files", back_populates="merge_tracking", lazy="joined")
-    blob = relationship("Blob", back_populates="merge_tracking", lazy="joined")
+    file = relationship("Files", back_populates="merge_tracking", )
+    blob = relationship("Blob", back_populates="merge_tracking", )
 
 #############################################################################################################
+
+
+def find_file():
+    ...

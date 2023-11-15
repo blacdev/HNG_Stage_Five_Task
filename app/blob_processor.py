@@ -1,4 +1,4 @@
-from app.models import Files
+from app.models.file_models import Files
 from app.settings import settings
 import os
 from sqlalchemy.orm import Session
@@ -6,7 +6,7 @@ from db import SessionLocal
 from moviepy.editor import *
 import glob
 import subprocess
-from app.services import getUrlFullPath
+from app.services.file_services import getUrlFullPath
 
 FILE_FOLDER, BLOB_FOLDER, THUMBNAIL_FOLDER, COMPRESSION_FOLDER = settings.create_base_folders()
 

@@ -2,12 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException,File, Request, BackgroundT
 import os
 from uuid import uuid4
 from fastapi.responses import StreamingResponse, FileResponse
-from app.models import Files, find_file
+from app.models.file_models import Files, find_file
 from db import get_db
 from sqlalchemy.orm import Session
 from app.settings import settings
-from app.schemas import FileResponseSchema
-from app.services import getUrlFullPath, video_streamer
+from app.schemas.file_schemas import FileResponseSchema
+from app.services.file_services import getUrlFullPath, video_streamer
 from app.blob_processor import video_processing_start
 
 FILE_FOLDER, BLOB_FOLDER, THUMBNAIL_FOLDER, COMPRESSION_FOLDER = settings.create_base_folders()

@@ -3,6 +3,16 @@ import os
 
 
 class Settings:
+  
+  DB_PORT= config("DB_PORT", default="5432")
+  DB_HOST = config("DB_HOST", default="localhost")
+  DB_USER = config("DB_USER", default="postgres")
+  DB_PASSWORD = config("DB_PASSWORD", default="postgres")
+  DB_NAME = config("DB_NAME", default="postgres")
+  DB_TYPE = config("DB_TYPE", default="postgresql")
+
+  SECRET_KEY = config("SECRET_KEY", default="secret")
+
   MEDIA_DIR = config("MEDIA_DIR", default="media")
   FILES_BASE_FOLDER = config("FILES_BASE_FOLDER" , default="files")
   BLOB_BASE_FOLDER = config("BLOB_BASE_FOLDER", default="blob")

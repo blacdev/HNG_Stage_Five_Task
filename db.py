@@ -1,53 +1,93 @@
+"""This file contains the database connection and session."""
 # database.py
+from typing import Any
+
 from sqlalchemy import create_engine
+from sqlalchemy.engine.base import Engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from decouple import config
+
+from app.settings import settings
+
+db_type = settings.DB_TYPE
+db_name = settings.DB_NAME
+db_user = settings.DB_USER
+db_password = settings.DB_PASSWORD
+db_host = settings.DB_HOST
+db_port = settings.DB_PORT
 
 
-def get_db_engine():
+def get_db_engine() -> Engine:
+    """
+    Get db engine:
+        This function returns the database engine.
+        it create a sqlite database if not connected to a
+        postgresql database.
 
-    DB_TYPE = config("DB_TYPE")
-    DB_NAME = config("DB_NAME", default="")
-    DB_USER = config("DB_USER", default="")
-    DB_PASSWORD = config("DB_PASSWORD", default="")
-    DB_HOST = config("DB_HOST", default="")
-    DB_PORT = config("DB_PORT", default="")
-    MYSQL_DRIVER = config("MYSQL_DRIVER", default="")
-    DATABASE_URL = ""
+    Returns:
+        create_engine: The database engine.
+    """
 
+    if db_type == "postgresql":
+        database_url = f"postgresql://{db_user}:{db_password}@\
+            {db_host}:{db_port}/{db_name}"
 
+        return create_engine(database_url)
 
+    if db_type == "sqlite":
+        database_url = "sqlite:///./database.db"
+        return create_engine(
+            database_url, connect_args={"check_same_thread": False}
+        )
 
+    raise ValueError("Database type not supported")
 
-    if DB_TYPE == "mysql":
-        DATABASE_URL = f"mysql+{MYSQL_DRIVER}://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-    elif DB_TYPE == "postgresql":
-        DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-    else:
-        DATABASE_URL = "sqlite:///./database.db"
-
-    if DB_TYPE == "sqlite":
-        db_engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-    else:
-        db_engine = create_engine(DATABASE_URL)
-    
-    return db_engine
 
 db_engine = get_db_engine()
+
+DATABASE_URL = db_engine.url.render_as_string()
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=db_engine)
 
 Base = declarative_base()
 
 
-def create_database():
+def create_database() -> Any:
+    """
+    Create database:
+        This function creates the database if it is not present and
+        creates all the tables in the database. It returns the
+        database engine.
+
+        This function is called in the main.py file. If a LOCAL
+        environment variable is set to True
+    """
+    print("Connected to the database")
     return Base.metadata.create_all(bind=db_engine)
 
 
-def get_db():
-    db = SessionLocal()
+def get_db() -> object:
+    """
+    Get db:
+        This function returns the database session.
+        It is used in the in any router file to get
+        the database session.
+    """
+    database = SessionLocal()
     try:
-        yield db
+        yield database
     finally:
-        db.close()
+        database.close()
+    return database
+
+
+def get_db_unyield() -> object:
+    """
+    Get db unyield:
+        This function returns the database session.
+        It is used mainly for writing to the database externally
+        from the entire application.
+    """
+    # create_database()
+    database = SessionLocal()
+    return database
